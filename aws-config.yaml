@@ -147,7 +147,7 @@ setup_commands:
     # this command does everything from scratch
 #    - sudo -H ubuntu-setup.sh
     - sudo -H pip install boto3==1.15.12  # newer than what's in the AMI
-    - sudo -H pip install -e 'git+https://github.com/danwallach/arlo-e2e-noop#egg=arlo_e2e_demo'
+    - sudo -H pip install -e 'git+https://github.com/danwallach/arlo-e2e-noop#egg=arlo_e2e_noop'
 #    - sudo -H pip install -U 'ray==1.0.0'
     - sudo -H pip install -U https://s3-us-west-2.amazonaws.com/ray-wheels/latest/ray-1.1.0.dev0-cp38-cp38-manylinux1_x86_64.whl
 

@@ -4,9 +4,9 @@ from time import sleep
 from typing import List, Dict, Optional, Sequence
 
 import ray
-from arlo_e2e_demo.ray_progress import ProgressBar
-from arlo_e2e_demo.ray_reduce import ray_reduce_with_ray_wait
-from arlo_e2e_demo.utils import shard_list_uniform
+from arlo_e2e_noop.ray_progress import ProgressBar
+from arlo_e2e_noop.ray_reduce import ray_reduce_with_ray_wait
+from arlo_e2e_noop.utils import shard_list_uniform
 from ray import ObjectRef
 from ray.actor import ActorHandle
 

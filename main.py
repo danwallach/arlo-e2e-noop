@@ -6,7 +6,7 @@ from typing import List, Dict
 
 import ray
 
-from arlo_e2e_demo.compute import tally_everything, tally_trivial
+from arlo_e2e_noop.compute import tally_everything, tally_trivial
 
 
 def gen_candidates(n: int) -> List[str]:

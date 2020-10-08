@@ -12,8 +12,8 @@ from typing import Iterable, Callable, Optional, List, Tuple, Any, Sequence
 import ray
 from ray import ObjectRef
 
-from arlo_e2e_demo.ray_progress import ProgressBar
-from arlo_e2e_demo.utils import shard_list_uniform
+from arlo_e2e_noop.ray_progress import ProgressBar
+from arlo_e2e_noop.utils import shard_list_uniform
 
 
 def ray_reduce_with_ray_wait(
