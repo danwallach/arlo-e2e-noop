@@ -7,9 +7,9 @@ Typical usage for a local run:
 % python main.py --local --progress --num-ballots 100
 ```
 
-For a remote run:
+For a remote run, something more like:
 ```
-% python main.py --progress --num-ballots 100000
+% ray submit main.py aws-config.yaml -- --progress --num-ballots 100000
 ```
 
 Dropping the `--progress` flag will eliminate the progressbar and its associated

@@ -49,6 +49,5 @@ setup(
     python_requires=">=3.8",
     install_requires=[
         "tqdm==4.47.0",
-        "ray==1.0.0",
     ],
 )
