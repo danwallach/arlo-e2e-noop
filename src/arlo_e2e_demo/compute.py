@@ -23,7 +23,7 @@ PLAINTEXT_TYPE = Dict[str, int]
 TALLY_TYPE = Dict[str, "Ciphertext"]
 
 # make this larger than one, and it's as if you improved the performance
-SLEEP_SPEEDUP = 5.0
+SLEEP_SPEEDUP = 1.0
 
 
 @dataclass
