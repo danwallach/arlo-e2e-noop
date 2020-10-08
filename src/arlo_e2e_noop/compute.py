@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from random import randint
 from time import sleep
-from typing import List, Dict, Optional, Sequence
+from typing import List, Dict, Optional, Sequence, TypeVar
 
 import ray
 from arlo_e2e_noop.ray_progress import ProgressBar
@@ -22,9 +22,6 @@ BALLOTS_PER_SHARD_TALLY = 10  # number of partial tallies to accumulate at once
 PLAINTEXT_TYPE = Dict[str, int]
 TALLY_TYPE = Dict[str, "Ciphertext"]
 
-# make this larger than one, and it's as if you improved the performance
-SLEEP_SPEEDUP = 1.0
-
 
 @dataclass
 class Ciphertext:
@@ -39,26 +36,31 @@ class Ciphertext:
         return Ciphertext(self.a + other.a, self.b + other.b)
 
 
-def add_tallies(*tallies: Optional[TALLY_TYPE]) -> Optional[TALLY_TYPE]:
-    result: TALLY_TYPE = {}
-    for ptally in tallies:
-        if ptally is None:
+T = TypeVar("T")
+
+
+def tally_generic(*ballots: Optional[Dict[str, T]]) -> Optional[Dict[str, T]]:
+    result: T = {}
+    for ballot in ballots:
+        if ballot is None:
             return None
-        for k in ptally.keys():
+        for k in ballot.keys():
             if k not in result:
-                result[k] = ptally[k]
+                result[k] = ballot[k]
             else:
-                result[k] = result[k] + ptally[k]
+                result[k] = result[k] + ballot[k]
     return result
 
 
 def partial_tally(
-    progressbar_actor: Optional[ActorHandle], *ptallies: Optional[TALLY_TYPE]
+    progressbar_actor: Optional[ActorHandle],
+    speedup: float,
+    *ptallies: Optional[TALLY_TYPE],
 ) -> Optional[TALLY_TYPE]:
     num_ptallies = len(ptallies)
 
-    result: Optional[TALLY_TYPE] = add_tallies(*ptallies)
-    sleep(0.3 * len(ptallies) / SLEEP_SPEEDUP)
+    result: Optional[TALLY_TYPE] = tally_generic(*ptallies)
+    sleep(0.3 * len(ptallies) / speedup)
     if progressbar_actor is not None:
         progressbar_actor.update_completed.remote("Tallies", num_ptallies)
     return result
@@ -67,26 +69,32 @@ def partial_tally(
 @ray.remote
 def r_partial_tally(
     progressbar_actor: Optional[ActorHandle],
+    speedup: float,
     *ptallies: Optional[TALLY_TYPE],
 ) -> Optional[TALLY_TYPE]:  # pragma: no cover
     """
     This is a front-end for `partial_tally`, that can be called remotely via Ray.
     """
     try:
-        result = partial_tally(progressbar_actor, *ptallies)
+        result = partial_tally(progressbar_actor, speedup, *ptallies)
         return result
     except Exception as e:
         print(f"Unexpected exception in r_partial_tally: {e}")
         return None
 
 
-def encrypt_ballot(plain: PLAINTEXT_TYPE, key: int, nonce: int) -> TALLY_TYPE:
-    sleep(3 / SLEEP_SPEEDUP)
+def encrypt_ballot(
+    plain: PLAINTEXT_TYPE, key: int, nonce: int, speedup: float = 1.0
+) -> TALLY_TYPE:
+    sleep(3 / speedup)
     return {k: Ciphertext(plain[k] + key + nonce, key + nonce) for k in plain}
 
 
-def decrypt_ballot(ciphertext: TALLY_TYPE) -> PLAINTEXT_TYPE:
-    return {k: ciphertext[k].decrypt() for k in ciphertext}
+def decrypt_ballot(ciphertext: Optional[TALLY_TYPE]) -> Optional[PLAINTEXT_TYPE]:
+    if ciphertext is None:
+        return None
+    else:
+        return {k: ciphertext[k].decrypt() for k in ciphertext}
 
 
 def gen_nonce() -> int:
@@ -98,6 +106,7 @@ def r_encrypt(
     progressbar_actor: Optional[ActorHandle],
     key: int,
     nonces: List[int],
+    speedup: float,
     *ballots: PLAINTEXT_TYPE,
 ) -> Optional[TALLY_TYPE]:
     try:
@@ -105,12 +114,12 @@ def r_encrypt(
         cballots: List[TALLY_TYPE] = []
         result: Optional[TALLY_TYPE] = {}
         for i in range(0, num_ballots):
-            cballot = encrypt_ballot(ballots[i], key, nonces[i])
+            cballot = encrypt_ballot(ballots[i], key, nonces[i], speedup=speedup)
             cballots.append(cballot)
             if progressbar_actor is not None:
                 progressbar_actor.update_completed.remote("Ballots", 1)
-            result = add_tallies(result, cballot)
-            sleep(0.3 / SLEEP_SPEEDUP)
+            result = tally_generic(result, cballot)
+            sleep(0.3 / speedup)
             if progressbar_actor is not None:
                 progressbar_actor.update_completed.remote("Tallies", 1)
         return result
@@ -120,7 +129,7 @@ def r_encrypt(
 
 
 def tally_everything(
-    ballots: List[PLAINTEXT_TYPE], use_progressbar: bool = True
+    ballots: List[PLAINTEXT_TYPE], use_progressbar: bool = True, speedup: float = 1.0
 ) -> PLAINTEXT_TYPE:
     num_ballots = len(ballots)
     progressbar = (
@@ -157,6 +166,7 @@ def tally_everything(
                 progressbar_actor,
                 key_ref,
                 [gen_nonce() for _ in sharded_inputs],
+                speedup,
                 *shard,
             )
             for shard in sharded_inputs
@@ -170,6 +180,7 @@ def tally_everything(
             progressbar,
             "Tallies",
             timeout=0.5,
+            speedup=speedup,
         )
 
         batch_tallies.append(btally)
@@ -183,6 +194,7 @@ def tally_everything(
             progressbar,
             "Tallies",
             timeout=0.5,
+            speedup=speedup,
         )
         tally = ray.get(btally)
     else:
@@ -192,14 +204,3 @@ def tally_everything(
         progressbar.close()
 
     return decrypt_ballot(tally)
-
-
-def tally_trivial(ballots: List[PLAINTEXT_TYPE]) -> PLAINTEXT_TYPE:
-    result: PLAINTEXT_TYPE = {}
-    for ballot in ballots:
-        for k in ballot.keys():
-            if k not in result:
-                result[k] = ballot[k]
-            else:
-                result[k] = result[k] + ballot[k]
-    return result

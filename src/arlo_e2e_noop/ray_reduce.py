@@ -20,11 +20,11 @@ def ray_reduce_with_ray_wait(
     inputs: Iterable[ObjectRef],
     shard_size: int,
     reducer_first_arg: Any,
-    reducer: Callable,  # Callable[[Any, VarArg(ObjectRef)], ObjectRef]
+    reducer: Callable,  # Callable[[Any, float, VarArg(ObjectRef)], ObjectRef]
     progressbar: Optional[ProgressBar] = None,
     progressbar_key: Optional[str] = None,
     timeout: float = None,
-    verbose: bool = False,
+    speedup: float = 1.0,
 ) -> ObjectRef:
     assert (
         progressbar_key and progressbar
@@ -85,7 +85,9 @@ def ray_reduce_with_ray_wait(
                 progressbar.actor.update_total.remote(progressbar_key, total_usable)
 
             # dispatches jobs to remote workers, returns immediately with ObjectRefs
-            partial_results = [reducer(reducer_first_arg, *s) for s in usable_shards]
+            partial_results = [
+                reducer(reducer_first_arg, speedup, *s) for s in usable_shards
+            ]
 
             inputs = list(
                 partial_results + pending_refs + [x[0] for x in size_one_shards]

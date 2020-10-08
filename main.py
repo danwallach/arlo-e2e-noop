@@ -6,7 +6,7 @@ from typing import List, Dict
 
 import ray
 
-from arlo_e2e_noop.compute import tally_everything, tally_trivial
+from arlo_e2e_noop.compute import tally_everything, tally_generic
 
 
 def gen_candidates(n: int) -> List[str]:
@@ -19,7 +19,7 @@ def gen_ballots(n: int, candidates: List[str]) -> List[Dict[str, int]]:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Runs a 'no-op' simulation of our compute on Ray (either locally or on a remote cluster)"
+        description="Runs a 'no-op' simulation of the arlo-e2e computation on Ray (either locally or on a remote cluster)"
     )
     parser.add_argument(
         "--local",
@@ -43,11 +43,22 @@ if __name__ == "__main__":
         type=int,
         default=100000,
     )
+    parser.add_argument(
+        "--speedup",
+        help="factor to accelerate the computation (>1 == faster; <1 == slower, default=1.0)",
+        type=float,
+        default=1.0,
+    )
 
     args = parser.parse_args()
     use_progressbar = args.progress
     ballot_size = args.ballot_size
     num_ballots = args.num_ballots
+    speedup = args.speedup
+
+    if not isinstance(speedup, float):
+        print("What?")
+        exit(1)
 
     if args.local:
         print("Using Ray locally.")
@@ -60,8 +71,8 @@ if __name__ == "__main__":
     ballots = gen_ballots(num_ballots, candidates)
     print("Input generated, starting computation.")
 
-    tally = tally_everything(ballots, use_progressbar)
-    trivial = tally_trivial(ballots)
+    tally = tally_everything(ballots, use_progressbar, speedup=speedup)
+    trivial = tally_generic(*ballots)
 
     if tally != trivial:
         print("Tallies don't match! (key: expected, actual)")
