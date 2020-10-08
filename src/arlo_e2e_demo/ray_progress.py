@@ -141,20 +141,24 @@ class ProgressBar:
         will return True and close the progress bars. If not, it returns False.
         """
 
-        state: Dict[str, ProgressBarState] = ray.get(
-            self.actor.wait_for_update.remote()
-        )
-        complete = True
-        for k in state.keys():
-            s: ProgressBarState = state[k]
-            p: tqdm = self.progress_bars[k]
-            p.update(s.delta_counter)
-            p.total = s.total
-            p.refresh()
-            complete = complete and s.counter >= s.total
-        if complete:
-            self.close()
-        return complete
+        if not self.progress_bars:
+            # somebody already called close(), so we're done
+            return True
+        else:
+            state: Dict[str, ProgressBarState] = ray.get(
+                self.actor.wait_for_update.remote()
+            )
+            complete = True
+            for k in state.keys():
+                s: ProgressBarState = state[k]
+                p: tqdm = self.progress_bars[k]
+                p.update(s.delta_counter)
+                p.total = s.total
+                p.refresh()
+                complete = complete and s.counter >= s.total
+            if complete:
+                self.close()
+            return complete
 
     def print_until_done(self) -> None:
         """

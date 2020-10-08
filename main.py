@@ -6,6 +6,8 @@ from typing import List, Dict
 
 import ray
 
+from arlo_e2e_demo.compute import tally_everything, tally_trivial
+
 
 def gen_candidates(n: int) -> List[str]:
     return [f"Candidate{i:05d}" for i in range(0, n)]
@@ -33,26 +35,38 @@ if __name__ == "__main__":
         "--ballot-size",
         help="number of questions per ballot (default: 100)",
         type=int,
-        default=[100],
+        default=100,
     )
     parser.add_argument(
         "--num-ballots",
         help="number of ballots (default: 100000)",
         type=int,
-        default=[100000],
+        default=100000,
     )
 
     args = parser.parse_args()
     use_progressbar = args.progress
-    ballot_size = args.ballot_size[0]
-    num_ballots = args.num_ballots[0]
+    ballot_size = args.ballot_size
+    num_ballots = args.num_ballots
 
     if args.local:
-        print("Using Ray locally")
+        print("Using Ray locally.")
         ray.init(num_cpus=os.cpu_count())
     else:
-        print("Using Ray on a cluster")
+        print("Using Ray on a cluster.")
         ray.init(address="auto")
 
     candidates = gen_candidates(ballot_size)
     ballots = gen_ballots(num_ballots, candidates)
+    print("Input generated, starting computation.")
+
+    tally = tally_everything(ballots, use_progressbar)
+    trivial = tally_trivial(ballots)
+
+    if tally != trivial:
+        print("Tallies don't match! (key: expected, actual)")
+        for k in sorted(tally.keys()):
+            print(f"  {k}: {trivial[k]}, {tally[k]}")
+
+    else:
+        print("Tallies match, done.")

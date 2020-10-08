@@ -60,4 +60,3 @@ def shard_list_uniform(input: Iterable[T], num_per_group: int) -> Sequence[Seque
         input_list = input_list[current_num_per_group_int:]
 
     return output
-
