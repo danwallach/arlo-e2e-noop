@@ -39,6 +39,7 @@ def ray_reduce_with_ray_wait(
     while inputs:
         if progressbar:
             progressbar.actor.update_completed.remote("Iterations", 1)
+            progressbar.print_update()
 
         iteration_count += 1
         # log_and_print(
@@ -94,10 +95,6 @@ def ray_reduce_with_ray_wait(
         else:
             # annoying case: we have exactly one result and nothing useful to do with it
             pass
-        if progressbar:
-            progressbar.print_update()
 
-    if progressbar:
-        progressbar.print_update()
     assert result is not None, "reducer fail: somehow exited the loop with no result"
     return result
