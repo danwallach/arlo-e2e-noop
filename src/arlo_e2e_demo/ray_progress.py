@@ -61,14 +61,19 @@ class ProgressBarActor:
         self.state[key].update_total(delta_total)
         self.event.set()
 
-    async def wait_for_update(self) -> Dict[str, ProgressBarState]:
+    def wait_for_update(self) -> Dict[str, ProgressBarState]:
         """
         Blocking call: waits until somebody calls `update_completed` or `update_total`,
-        then returns the progress bar state. Also clears the `delta_counter` fields
-        for next time.
+        then returns the progress bar state.
         """
         await self.event.wait()
         self.event.clear()
+        return self.state
+
+    def get_state(self) -> Dict[str, ProgressBarState]:
+        """
+        Non-blocking call: fetches the state immediately.
+        """
         return self.state
 
 
@@ -112,10 +117,10 @@ class ProgressBar:
         """
         return self.progress_actor
 
-    def print_update(self) -> bool:
+    def print_update(self, wait_for_update: bool = False) -> bool:
         """
-        Blocking call, but returns quickly. This will wait until there's any update in the
-        state of the job, then update the progress bars and return. If the job is done, this
+        If requested via the `wait_for_update` flag, this will wait until there's any update in the
+        state of the job. Then, either way, it updates the progress bars and return. If the job is done, this
         will return True and close the progress bars. If not, it returns False.
         """
 
@@ -123,9 +128,11 @@ class ProgressBar:
             # somebody already called close(), so we're done
             return True
         else:
-            state: Dict[str, ProgressBarState] = ray.get(
-                self.actor.wait_for_update.remote()
-            )
+            if wait_for_update:
+                state = ray.get(self.actor.wait_for_update.remote())
+            else:
+                state = ray.get(self.actor.get_state.remote())
+
             complete = True
             for k in state.keys():
                 s: ProgressBarState = state[k]
@@ -145,7 +152,7 @@ class ProgressBar:
         to which you've passed the actor handle. Your remote workers might then call the `update` methods
         on the actor. When the progress meter reaches 100%, this method returns.
         """
-        while not self.print_update():
+        while not self.print_update(wait_for_update=True):
             pass
 
     def close(self) -> None:
