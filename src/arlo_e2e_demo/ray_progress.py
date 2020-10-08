@@ -61,7 +61,7 @@ class ProgressBarActor:
         self.state[key].update_total(delta_total)
         self.event.set()
 
-    def wait_for_update(self) -> Dict[str, ProgressBarState]:
+    async def wait_for_update(self) -> Dict[str, ProgressBarState]:
         """
         Blocking call: waits until somebody calls `update_completed` or `update_total`,
         then returns the progress bar state.
