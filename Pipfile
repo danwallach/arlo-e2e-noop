@@ -7,7 +7,9 @@ verify_ssl = true
 
 [packages]
 tqdm = "==4.47.0"
-ray = "==1.0.0"
+# ray = "==1.0.0"  # leaving this out so we can install the Ray wheel from the command-line
+# arlo-e2e-noop = {editable = true, path = "."}
+yarl = {editable = true, path = "."}
 
 [requires]
 python_version = "3.8"
