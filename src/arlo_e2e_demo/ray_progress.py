@@ -15,18 +15,13 @@ class ProgressBarState:
     """
 
     counter: int
-    delta_counter: int
     total: int
 
     def update_completed(self, delta_num_items_completed: int) -> None:
         self.counter += delta_num_items_completed
-        self.delta_counter += delta_num_items_completed
 
     def update_total(self, delta_total: int) -> None:
         self.total += delta_total
-
-    def clear_delta(self) -> None:
-        self.delta_counter = 0
 
 
 @ray.remote
@@ -39,25 +34,16 @@ class ProgressBarActor:
 
     state: Dict[str, ProgressBarState]
     event: Event
-    clear_delta_on_update: bool
 
     def __init__(self, totals: Dict[str, int]) -> None:
-        self.state = {key: ProgressBarState(0, 0, totals[key]) for key in totals.keys()}
+        self.state = {key: ProgressBarState(0, totals[key]) for key in totals.keys()}
         self.event = Event()
-        self.clear_delta_on_update = False
-
-    def _check_deltas(self) -> None:
-        if self.clear_delta_on_update:
-            self.clear_delta_on_update = False
-            for key in self.state.keys():
-                self.state[key].clear_delta()
 
     def update_completed(self, key: str, delta_num_items_completed: int) -> None:
         """
         Updates the ProgressBar with the incremental number of items that
         were just completed.
         """
-        self._check_deltas()
         assert (
             key in self.state
         ), f"error: used key {key}, which isn't in ({list(self.state.keys())})"
@@ -69,7 +55,6 @@ class ProgressBarActor:
         Updates the ProgressBar with the incremental number of items that
         represent new work, still to be done.
         """
-        self._check_deltas()
         assert (
             key in self.state
         ), f"error: used key {key}, which isn't in ({list(self.state.keys())})"
@@ -84,13 +69,6 @@ class ProgressBarActor:
         """
         await self.event.wait()
         self.event.clear()
-
-        # Rather than copying the state, then mutating it, and returning the copy,
-        # we're just setting a flag to deal with it next time. Because the state
-        # we're returning is serialized on the way out, we don't have to worry about
-        # maintaining the original state after this method returns.
-
-        self.clear_delta_on_update = True
         return self.state
 
 
@@ -152,7 +130,8 @@ class ProgressBar:
             for k in state.keys():
                 s: ProgressBarState = state[k]
                 p: tqdm = self.progress_bars[k]
-                p.update(s.delta_counter)
+                # p.update(s.delta_counter)
+                p.n = s.counter
                 p.total = s.total
                 p.refresh()
                 complete = complete and s.counter >= s.total
