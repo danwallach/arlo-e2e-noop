@@ -1,5 +1,4 @@
 # Inspiration: https://github.com/honnibal/spacy-ray/pull/1/files#diff-7ede881ddc3e8456b320afb958362b2aR12-R45
-from asyncio import Event
 from dataclasses import dataclass
 from typing import Dict
 
@@ -33,11 +32,9 @@ class ProgressBarActor:
     """
 
     state: Dict[str, ProgressBarState]
-    event: Event
 
     def __init__(self, totals: Dict[str, int]) -> None:
         self.state = {key: ProgressBarState(0, totals[key]) for key in totals.keys()}
-        self.event = Event()
 
     def update_completed(self, key: str, delta_num_items_completed: int) -> None:
         """
@@ -48,7 +45,6 @@ class ProgressBarActor:
             key in self.state
         ), f"error: used key {key}, which isn't in ({list(self.state.keys())})"
         self.state[key].update_completed(delta_num_items_completed)
-        self.event.set()
 
     def update_total(self, key: str, delta_total: int) -> None:
         """
@@ -59,16 +55,6 @@ class ProgressBarActor:
             key in self.state
         ), f"error: used key {key}, which isn't in ({list(self.state.keys())})"
         self.state[key].update_total(delta_total)
-        self.event.set()
-
-    async def wait_for_update(self) -> Dict[str, ProgressBarState]:
-        """
-        Blocking call: waits until somebody calls `update_completed` or `update_total`,
-        then returns the progress bar state.
-        """
-        await self.event.wait()
-        self.event.clear()
-        return self.state
 
     def get_state(self) -> Dict[str, ProgressBarState]:
         """
@@ -117,7 +103,7 @@ class ProgressBar:
         """
         return self.progress_actor
 
-    def print_update(self, wait_for_update: bool = False) -> bool:
+    def print_update(self) -> bool:
         """
         If requested via the `wait_for_update` flag, this will wait until there's any update in the
         state of the job. Then, either way, it updates the progress bars and return. If the job is done, this
@@ -128,10 +114,7 @@ class ProgressBar:
             # somebody already called close(), so we're done
             return True
         else:
-            if wait_for_update:
-                state = ray.get(self.actor.wait_for_update.remote())
-            else:
-                state = ray.get(self.actor.get_state.remote())
+            state = ray.get(self.actor.get_state.remote())
 
             complete = True
             for k in state.keys():
@@ -145,15 +128,6 @@ class ProgressBar:
             if complete:
                 self.close()
             return complete
-
-    def print_until_done(self) -> None:
-        """
-        Blocking call, runs for a while. Do this after starting a series of remote Ray tasks,
-        to which you've passed the actor handle. Your remote workers might then call the `update` methods
-        on the actor. When the progress meter reaches 100%, this method returns.
-        """
-        while not self.print_update(wait_for_update=True):
-            pass
 
     def close(self) -> None:
         """
