@@ -165,10 +165,10 @@ worker_setup_commands: []
 # up more RAM for coordination tasks.
 head_start_ray_commands:
     - ray stop
-    - ulimit -n 65536; RAY_ENABLE_MULTI_TENANCY=0 RAY_BACKEND_LOG_LEVEL=debug ray start --num-cpus 0 --head --port=6379 --object-manager-port=8076 --autoscaling-config=~/ray_bootstrap_config.yaml
+    - ulimit -n 65536; ray start --num-cpus 0 --head --port=6379 --object-manager-port=8076 --min-worker-port=10000 --max-worker-port=15000 --autoscaling-config=~/ray_bootstrap_config.yaml
 
 # Command to start ray on worker nodes. You don't need to change this.
 worker_start_ray_commands:
     - ray stop
-    - ulimit -n 65536; RAY_ENABLE_MULTI_TENANCY=0 RAY_BACKEND_LOG_LEVEL=debug ray start --address=$RAY_HEAD_IP:6379 --object-manager-port=8076
+    - ulimit -n 65536; ray start --address=$RAY_HEAD_IP:6379 --object-manager-port=8076 --min-worker-port=10000 --max-worker-port=15000
 
